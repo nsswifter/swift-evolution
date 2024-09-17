@@ -3,8 +3,7 @@
 * Proposal: [SE-0433](0433-mutex.md)
 * Author: [Alejandro Alonso](https://github.com/Azoy)
 * Review Manager: [Stephen Canon](https://github.com/stephentyrone)
-* Implementation: [apple/swift#71383](https://github.com/apple/swift/pull/71383)
-* Status: **Accepted**
+* Status: **Implemented (Swift 6.0)**
 * Review: ([pitch](https://forums.swift.org/t/pitch-synchronous-mutual-exclusion-lock/69889)), ([review](https://forums.swift.org/t/se-0433-synchronous-mutual-exclusion-lock/71174)), ([acceptance](https://forums.swift.org/t/accepted-se-0433-synchronous-mutual-exclusion-lock/71463))
 
 ## Introduction
@@ -110,7 +109,7 @@ public struct Mutex<State: ~Copyable>: ~Copyable {
 extension Mutex: Sendable where State: ~Copyable {}
   
 extension Mutex where State: ~Copyable {
-  /// Calls the given closure after acquring the lock and then releases
+  /// Calls the given closure after acquiring the lock and then releases
   /// ownership.
   ///
   /// This method is equivalent to the following sequence of code:
@@ -178,11 +177,11 @@ extension Mutex where State: ~Copyable {
 
 ## Interaction with Existing Language Features
 
-`Mutex` will be decorated with the `@_staticExclusiveOnly` attribute, meaning you will not be able to declare a variable of type `Mutex` as `var`. These are the same restrictions imposed on the recently accepted `Atomic` and `AtomicLazyReference` types. Please refer to the [Atomics proposal](https://github.com/apple/swift-evolution/blob/main/proposals/0410-atomics.md) for a more in-depth discussion on what is allowed and not allowed. These restrictions are enabled for `Mutex` for all of the same reasons why it was resticted for `Atomic`. We do not want to introduce dynamic exclusivity checking when accessing a value of `Mutex` as a class stored property for instance.
+`Mutex` will be decorated with the `@_staticExclusiveOnly` attribute, meaning you will not be able to declare a variable of type `Mutex` as `var`. These are the same restrictions imposed on the recently accepted `Atomic` and `AtomicLazyReference` types. Please refer to the [Atomics proposal](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0410-atomics.md) for a more in-depth discussion on what is allowed and not allowed. These restrictions are enabled for `Mutex` for all of the same reasons why it was resticted for `Atomic`. We do not want to introduce dynamic exclusivity checking when accessing a value of `Mutex` as a class stored property for instance.
 
 ### Interactions with Swift Concurrency
 
-`Mutex` is unconditionally `Sendable` regardless of the value it's protecting. We can ensure the safetyness of this value due to the `transferring` marked parameters of both the initializer and the closure `inout` argument. (Please refer to [SE-0430 `transferring` isolation regions of parameter and result values](https://github.com/apple/swift-evolution/blob/main/proposals/0430-transferring-parameters-and-results.md)) This allows us to statically determine that the non-sendable value we're initializing the mutex with will have no other uses after initialization. Within the closure body, it ensures that if we tried to escape the protected non-sendable value, it would require us to replace the stored value for the notion of transferring out and then transferring back in.
+`Mutex` is unconditionally `Sendable` regardless of the value it's protecting. We can ensure the safetyness of this value due to the `transferring` marked parameters of both the initializer and the closure `inout` argument. (Please refer to [SE-0430 `transferring` isolation regions of parameter and result values](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0430-transferring-parameters-and-results.md)) This allows us to statically determine that the non-sendable value we're initializing the mutex with will have no other uses after initialization. Within the closure body, it ensures that if we tried to escape the protected non-sendable value, it would require us to replace the stored value for the notion of transferring out and then transferring back in.
 
 Consider the following example of a mutex to a non-sendable class.
 
